@@ -38,12 +38,10 @@ def load_and_process_audio(flac_path, sequence_length, device):
 def transcribe(model, audio):
 
     mel = melspectrogram(audio.reshape(-1, audio.shape[-1])[:, :-1]).transpose(-1, -2)
-    onset_pred, offset_pred, _, frame_pred, velocity_pred = model(mel)
+    onset_pred, velocity_pred = model(mel)
 
     predictions = {
             'onset': onset_pred.reshape((onset_pred.shape[1], onset_pred.shape[2])),
-            'offset': offset_pred.reshape((offset_pred.shape[1], offset_pred.shape[2])),
-            'frame': frame_pred.reshape((frame_pred.shape[1], frame_pred.shape[2])),
             'velocity': velocity_pred.reshape((velocity_pred.shape[1], velocity_pred.shape[2]))
         }
 
@@ -61,16 +59,17 @@ def transcribe_file(model_file, flac_paths, save_path, sequence_length,
         audio = load_and_process_audio(flac_path, sequence_length, device)
         predictions = transcribe(model, audio)
 
-        p_est, i_est, v_est = extract_notes(predictions['onset'], predictions['frame'], predictions['velocity'], onset_threshold, frame_threshold)
+        p_est, i_est, v_est = extract_notes(predictions['onset'], predictions['velocity'], onset_threshold)
 
         scaling = HOP_LENGTH / SAMPLE_RATE
 
         i_est = (i_est * scaling).reshape(-1, 2)
-        p_est = np.array([midi_to_hz(MIN_MIDI + midi) for midi in p_est])
+
+        p_est = np.array([midi_to_hz(HIT_MAPS_ENCODE[midi]) for midi in p_est])
 
         os.makedirs(save_path, exist_ok=True)
         pred_path = os.path.join(save_path, os.path.basename(flac_path) + '.pred.png')
-        save_pianoroll(pred_path, predictions['onset'], predictions['frame'])
+        # save_pianoroll(pred_path, predictions['onset'])
         midi_path = os.path.join(save_path, os.path.basename(flac_path) + '.pred.mid')
         save_midi(midi_path, p_est, i_est, v_est)
 

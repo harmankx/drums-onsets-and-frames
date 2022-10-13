@@ -2,14 +2,13 @@ import numpy as np
 import torch
 
 
-def extract_notes(onsets, frames, velocity, onset_threshold=0.5, frame_threshold=0.5):
+def extract_notes(onsets, velocity, onset_threshold=0.5):
     """
-    Finds the note timings based on the onsets and frames information
+    Finds the note timings based on the onsets
 
     Parameters
     ----------
     onsets: torch.FloatTensor, shape = [frames, bins]
-    frames: torch.FloatTensor, shape = [frames, bins]
     velocity: torch.FloatTensor, shape = [frames, bins]
     onset_threshold: float
     frame_threshold: float
@@ -21,7 +20,6 @@ def extract_notes(onsets, frames, velocity, onset_threshold=0.5, frame_threshold
     velocities: np.ndarray of velocity values
     """
     onsets = (onsets > onset_threshold).cpu().to(torch.uint8)
-    frames = (frames > frame_threshold).cpu().to(torch.uint8)
     onset_diff = torch.cat([onsets[:1, :], onsets[1:, :] - onsets[:-1, :]], dim=0) == 1
 
     pitches = []
@@ -29,14 +27,13 @@ def extract_notes(onsets, frames, velocity, onset_threshold=0.5, frame_threshold
     velocities = []
 
     for nonzero in onset_diff.nonzero():
-        frame = nonzero[0].item()
+        onset = nonzero[0].item()
         pitch = nonzero[1].item()
 
-        onset = frame
-        offset = frame
+        offset = onset
         velocity_samples = []
 
-        while onsets[offset, pitch].item() or frames[offset, pitch].item():
+        while onsets[offset, pitch].item():
             if onsets[offset, pitch].item():
                 velocity_samples.append(velocity[offset, pitch].item())
             offset += 1
