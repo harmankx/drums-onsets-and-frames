@@ -67,3 +67,14 @@ HIT_MAPS_ENCODE_INVERT = {
     75 : 8  # Sticks
 }
 
+HIT_MAPS_NAMES = {
+    1 : 'Kick',
+    2 : 'Snare',
+    3 : 'Toms',
+    4 : 'HH',
+    5 : 'Ride',
+    6 : 'Ride Bell',
+    7 : 'Crash',
+    8 : 'Sticks'
+}
+

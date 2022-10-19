@@ -16,7 +16,6 @@ class ConvStack(nn.Module):
     def __init__(self, input_features, output_features):
         super().__init__()
 
-        # input is batch_size * 1 channel * frames * input_features
         self.cnn = nn.Sequential(
             # layer 0
             nn.Conv2d(1, output_features // 16, (3, 3), padding=1),
