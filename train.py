@@ -14,6 +14,7 @@ from matplotlib import pyplot as plt
 from evaluate import evaluate
 from onsets_and_frames import *
 from random import randrange
+import pandas as pd
 
 ex = Experiment('train_transcriber')
 
@@ -22,13 +23,13 @@ ex = Experiment('train_transcriber')
 def config():
     logdir = 'runs/transcriber-' + datetime.now().strftime('%y%m%d-%H%M%S')
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    iterations = 50000
+    iterations = 500
     resume_iteration = None
     checkpoint_interval = 1000
     train_on = 'MAESTRO'
 
     batch_size = 8
-    sequence_length = 32768
+    sequence_length = SEQUENCE_LENGTH 
     model_complexity = 48
 
     if torch.cuda.is_available() and torch.cuda.get_device_properties(torch.cuda.current_device()).total_memory < 10e9:
@@ -59,13 +60,11 @@ def train(logdir, device, iterations, resume_iteration, checkpoint_interval, tra
     os.makedirs(logdir, exist_ok=True)
     writer = SummaryWriter(logdir)
 
-    dataset = GROOVE(groups=['drummer1', 'drummer3', 'drummer4', 'drummer5'], sequence_length=sequence_length)
+    dataset = GROOVE(groups=['train_20'], sequence_length=sequence_length)
     train_eval_sets = []
-    train_eval_sets.append(GROOVE(groups=['drummer1'], sequence_length=sequence_length))
-    train_eval_sets.append(GROOVE(groups=['drummer3'], sequence_length=sequence_length))
-    train_eval_sets.append(GROOVE(groups=['drummer4'], sequence_length=sequence_length))
-    train_eval_sets.append(GROOVE(groups=['drummer5'], sequence_length=sequence_length))
-    validation_dataset = GROOVE(groups=['drummer8', 'drummer9'], sequence_length=validation_length)
+    # train_eval_sets.append(GROOVE(groups=['train_20'], sequence_length=sequence_length))
+    train_eval = GROOVE(groups=['train_20'], sequence_length=sequence_length)
+    validation_dataset = GROOVE(groups=['validation_20'], sequence_length=validation_length)
 
     loader = DataLoader(dataset, batch_size, shuffle=True, drop_last=True)
 
@@ -84,12 +83,24 @@ def train(logdir, device, iterations, resume_iteration, checkpoint_interval, tra
 
     loop = tqdm(range(resume_iteration + 1, iterations + 1))
     val_losses = []
+    val_vel_losses = []
+    val_onset_losses = []
     val_iter = []
     val_acc = []
 
     train_losses = []
+    train_vel_losses = []
+    train_onset_losses = []
     train_iter = []
     train_acc = []
+
+    #   getting accuracies to a file to evaluate
+    onset_f1_dict = {}
+    velocity_f1_dict = {}
+
+    onset_loss_dict = {}
+    velocity_loss_dict = {}
+
     for i, batch in zip(loop, cycle(loader)):
         predictions, losses = model.run_on_batch(batch)
 
@@ -107,45 +118,118 @@ def train(logdir, device, iterations, resume_iteration, checkpoint_interval, tra
         
         if i % validation_interval == 0 or i==1:
             val_losses_num = 0
+            val_vel = 0
+            val_onset = 0
             model.eval()
             with torch.no_grad():
-                for key, value in evaluate(validation_dataset, model).items():
-                    if(key == 'loss/onset' or key == 'loss/velocity'):
-                        val_losses_num += np.mean(value)
-                    if(key == 'metric/note-with-velocity/f1'):
-                        val_acc.append(np.mean(value))
+                eval_ = evaluate(validation_dataset, model)
+                if not onset_f1_dict:
+                    for item in eval_['path']:
+                        onset_f1_dict[item] = []
+                        onset_loss_dict[item] = []
+                        velocity_loss_dict[item] = []
+                        velocity_f1_dict[item] = []
+                else:
+                    for idx, item in enumerate(eval_['path']):
+                        onset_f1_dict[item].append(eval_['metric/total/f1'][idx])
+                        velocity_f1_dict[item].append(eval_['metric/total-with-velocity/f1'][idx])
 
-                    writer.add_scalar('validation/' + key.replace(' ', '_'), np.mean(value), global_step=i)
-                val_losses
+                        onset_loss_dict[item].append(eval_['loss/onset'][idx])
+                        velocity_loss_dict[item].append(eval_['loss/velocity'][idx])
+
+                total_velocity = np.mean(eval_['metric/total-with-velocity/f1'])
+                loss_onset = np.mean(eval_['loss/onset'])
+                loss_velocity = np.mean(eval_['loss/velocity'])
+
+                val_onset += loss_onset
+                val_vel += loss_velocity
+                val_losses_num += loss_onset + loss_velocity
+                val_acc.append(total_velocity)
+
+                for key, value in eval_.items():
+                    if(key != 'path'):
+                        writer.add_scalar('validation/' + key.replace(' ', '_'), np.mean(value), global_step=i)
+            
             val_losses.append(val_losses_num)
+            val_vel_losses.append(val_vel)
+            val_onset_losses.append(val_onset)
             val_iter.append(i) 
             model.train()
 
         if i % checkpoint_interval == 0 or i==1:
             train_losses.append(loss.item())
+            train_vel_losses.append(losses['loss/velocity'].item())
+            train_onset_losses.append(losses['loss/onset'].item())
             train_iter.append(i)
-            acc = evaluate(train_eval_sets[int(randrange(4))], model)["metric/note-with-velocity/f1"]
+            # acc = evaluate(train_eval_sets[int(randrange(5))], model)["metric/total-with-velocity/f1"]
+            acc = evaluate(train_eval, model)["metric/total-with-velocity/f1"]
             train_acc.append(np.mean(acc))
 
             torch.save(model, os.path.join(logdir, f'model-{i}.pt'))
             torch.save(optimizer.state_dict(), os.path.join(logdir, 'last-optimizer-state.pt'))
 
-    # loss plot
+    path = os.path.join(logdir, 'accuracies')
+    if not os.path.isdir(path):
+        os.makedirs(path)
+    
+    onset_df = pd.DataFrame.from_dict(onset_f1_dict, orient='index')
+    velocity_df = pd.DataFrame.from_dict(velocity_f1_dict, orient='index')
+    onset_loss_df = pd.DataFrame.from_dict(onset_loss_dict, orient='index')
+    velocity_loss_df = pd.DataFrame.from_dict(velocity_loss_dict, orient='index')
+
+    onset_df.to_csv(os.path.join(path, 'onset_f1.csv'))
+    onset_loss_df.to_csv(os.path.join(path, 'onset_loss.csv'))
+    velocity_df.to_csv(os.path.join(path, 'velocity_df.csv'))
+    velocity_loss_df.to_csv(os.path.join(path, 'velocity_loss.csv'))
+
+
+
+    path = os.path.join(logdir, 'plots')
+    if not os.path.isdir(path):
+        os.makedirs(path)
+
+    # total loss
     plt.plot(train_iter, train_losses, label = "Train Loss")
     plt.plot(val_iter, val_losses, label = "Val Loss")
-
     plt.xlabel('Iterations')
     plt.ylabel('Loss')
-
+    plt.yscale('log')
     plt.legend()
-    plt.show()
+    plt.title("Total Loss")
+    plt.savefig(os.path.join(logdir, 'plots', 'total-loss.png'), format='png')
+    # plt.show()
+    plt.close()
+
+    # vel loss
+    plt.plot(train_iter, train_vel_losses, label = "Train Velocity Loss")
+    plt.plot(val_iter, val_vel_losses, label = "Val Velocity Loss")
+    plt.xlabel('Iterations')
+    plt.ylabel('Loss')
+    plt.yscale('log')
+    plt.legend()
+    plt.title("Velocity Loss")
+    plt.savefig(os.path.join(logdir, 'plots', 'velocity-loss.png'), format='png')
+    # plt.show()
+    plt.close()
+
+    # onset loss
+    plt.plot(train_iter, train_onset_losses, label = "Train Onset Loss")
+    plt.plot(val_iter, val_onset_losses, label = "Val Onset Loss")
+    plt.xlabel('Iterations')
+    plt.ylabel('Loss')
+    plt.yscale('log')
+    plt.legend()
+    plt.title("Onset Loss")
+    plt.savefig(os.path.join(logdir, 'plots', 'onset-loss.png'), format='png')
+    # plt.show()
+    plt.close()
 
     # accuracy plot
     plt.plot(train_iter, train_acc, label = "Train Accuracy")
     plt.plot(val_iter, val_acc, label = "Val Accuracy")
-
     plt.xlabel('Iterations')
     plt.ylabel('Accuracy')
-
     plt.legend()
-    plt.show()
+    plt.savefig(os.path.join(logdir, 'plots', 'accuracy.png'), format='png')
+    # plt.show()
+    plt.close()

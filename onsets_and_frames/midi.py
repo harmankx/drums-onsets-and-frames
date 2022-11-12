@@ -33,7 +33,7 @@ def parse_midi(path):
         if onset['velocity'] == 0:
             continue
 
-        note = (onset['time'], onset['note'], onset['velocity'])
+        note = (onset['time'], onset['note'], onset['velocity']/127.0)
         notes.append(note)
 
     return np.array(notes)
@@ -52,7 +52,7 @@ def save_midi(path, pitches, intervals, velocities):
     file = MidiFile()
     track = MidiTrack()
     file.tracks.append(track)
-    ticks_per_second = file.ticks_per_beat * 2.0
+    ticks_per_second = int((file.ticks_per_beat * 2) * (2/3))
 
     events = []
     for i in range(len(pitches)):

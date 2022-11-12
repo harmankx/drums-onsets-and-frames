@@ -6,6 +6,9 @@ from collections import defaultdict
 import numpy as np
 from mir_eval.multipitch import evaluate as evaluate_frames
 from mir_eval.transcription import precision_recall_f1_overlap as evaluate_notes
+from mir_eval import transcription
+from mir_eval import transcription_velocity
+from mir_eval import util
 from mir_eval.transcription_velocity import precision_recall_f1_overlap as evaluate_notes_with_velocity
 from mir_eval.util import midi_to_hz
 from scipy.stats import hmean
@@ -20,7 +23,6 @@ def split_midi(pitches, intervals, velocity, midi):
     """
     Takes extracted pitch values, intervals, and velocitys and filters by a midi hit
     """
-
     combined = np.concatenate((pitches[:, None], intervals.reshape(-1, 2), velocity[:, None]), axis=1)
     midi_combined = combined[combined[:, 0] == midi]
     p = midi_combined[:, 0].reshape(-1)
@@ -58,7 +60,7 @@ def evaluate(data, model, onset_threshold=0.5, frame_threshold=0.5, save_path=No
             p, r, f, o = evaluate_notes(int_ref, pitch_ref, int_est, pitch_est, offset_ratio=None)
             metrics['metric/' + str(HIT_MAPS_NAMES[hit]) + '/f1'].append(f)
 
-            p, r, f, o = evaluate_notes_with_velocity(int_ref, pitch_ref, vel_ref, int_est, pitch_est, vel_est,
+            p, r, f, o = evaluate_notes_with_velocity2(int_ref, pitch_ref, vel_ref, int_est, pitch_est, vel_est,
                                                     offset_ratio=None, velocity_tolerance=0.1)
             metrics['metric/' + str(HIT_MAPS_NAMES[hit]) + '-with-velocity/f1'].append(f)
 
@@ -71,12 +73,17 @@ def evaluate(data, model, onset_threshold=0.5, frame_threshold=0.5, save_path=No
         metrics['metric/total/precision'].append(p)
         metrics['metric/total/recall'].append(r)
         metrics['metric/total/f1'].append(f)
+        onset_f = f
 
-        p, r, f, o = evaluate_notes_with_velocity(i_ref, p_ref, v_ref, i_est, p_est, v_est,
+        p, r, f, o = evaluate_notes_with_velocity2(i_ref, p_ref, v_ref, i_est, p_est, v_est,
                                                   offset_ratio=None, velocity_tolerance=0.1)
         metrics['metric/total-with-velocity/precision'].append(p)
         metrics['metric/total-with-velocity/recall'].append(r)
         metrics['metric/total-with-velocity/f1'].append(f)
+        metrics['path'].append(label["path"])
+
+        # if not model.training:
+        #     print(f'f1: {str(onset_f):30s} velocity/f1: {str(f):30s} file: {str(label["path"]):30s}')
 
         if save_path is not None:
             os.makedirs(save_path, exist_ok=True)
@@ -109,13 +116,67 @@ def evaluate_file(model_file, dataset, dataset_group, sequence_length, save_path
             print(f'{category:>32} {name:25}: {np.mean(values):.3f} ± {np.std(values):.3f}')
 
 
+def evaluate_notes_with_velocity2(ref_intervals, ref_pitches, ref_velocities, est_intervals, est_pitches,
+        est_velocities, onset_tolerance=0.05, pitch_tolerance=50.0,
+        offset_ratio=0.2, offset_min_tolerance=0.05, strict=False,
+        velocity_tolerance=0.1, beta=1.0):
+    transcription_velocity.validate(ref_intervals, ref_pitches, ref_velocities, est_intervals,
+             est_pitches, est_velocities)
+    # When reference notes are empty, metrics are undefined, return 0's
+    if len(ref_pitches) == 0 or len(est_pitches) == 0:
+        return 0., 0., 0., 0.
+
+    matching = match_notes(
+        ref_intervals, ref_pitches, ref_velocities, est_intervals, est_pitches,
+        est_velocities, onset_tolerance, pitch_tolerance, offset_ratio,
+        offset_min_tolerance, strict, velocity_tolerance)
+
+    precision = float(len(matching))/len(est_pitches)
+    recall = float(len(matching))/len(ref_pitches)
+    f_measure = util.f_measure(precision, recall, beta=beta)
+
+    avg_overlap_ratio = transcription.average_overlap_ratio(
+        ref_intervals, est_intervals, matching)
+    return precision, recall, f_measure, avg_overlap_ratio
+
+def match_notes(
+        ref_intervals, ref_pitches, ref_velocities, est_intervals, est_pitches,
+        est_velocities, onset_tolerance=0.05, pitch_tolerance=50.0,
+        offset_ratio=0.2, offset_min_tolerance=0.05, strict=False,
+        velocity_tolerance=0.1):
+
+    # Compute note matching as usual using standard transcription function
+    matching = transcription.match_notes(
+        ref_intervals, ref_pitches, est_intervals, est_pitches,
+        onset_tolerance, pitch_tolerance, offset_ratio, offset_min_tolerance,
+        strict)
+
+    # Convert matching list-of-tuples to array for fancy indexing
+    matching = np.array(matching)
+    # When there is no matching, return an empty list
+    if matching.size == 0:
+        return []
+    # Grab velocities for matched notes
+    ref_matched_velocities = ref_velocities[matching[:, 0]]
+    est_matched_velocities = est_velocities[matching[:, 1]]
+
+    velocity_diff = np.abs(est_matched_velocities - ref_matched_velocities)
+    # Check whether each error is within the provided tolerance
+    velocity_within_tolerance = (velocity_diff < velocity_tolerance)
+    # Only keep matches whose velocity was within the provided tolerance
+    matching = matching[velocity_within_tolerance]
+    # Convert back to list-of-tuple format
+    matching = [tuple(_) for _ in matching]
+
+    return matching
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('model_file', nargs='?', type=str, default='runs/transcriber-221013-081445/model-50000.pt')
+    parser.add_argument('model_file', nargs='?', type=str, default='runs/transcriber-CE-20/model-50000.pt')
     parser.add_argument('dataset', nargs='?', default='GROOVE')
     parser.add_argument('dataset_group', nargs='?', default=None)
     parser.add_argument('--save-path', default=None)
-    parser.add_argument('--sequence-length', default=None, type=int)
+    parser.add_argument('--sequence-length', default=SEQUENCE_LENGTH, type=int)
     parser.add_argument('--onset-threshold', default=0.5, type=float)
     parser.add_argument('--frame-threshold', default=0.5, type=float)
     parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')

@@ -48,9 +48,9 @@ class PianoRollAudioDataset(Dataset):
             result['label'] = data['label'].to(self.device)
             result['velocity'] = data['velocity'].to(self.device).float()
 
-        result['audio'] = result['audio'].float().div_(32768.0)
+        result['audio'] = result['audio'].float().div_(SEQUENCE_LENGTH * 1.0)
         result['onset'] = (result['label'] == 1).float()
-        result['velocity'] = result['velocity'].float().div_(128.0)
+        result['velocity'] = result['velocity'].float()
 
         return result
 
@@ -99,12 +99,11 @@ class PianoRollAudioDataset(Dataset):
         audio = torch.ShortTensor(audio)
         audio_length = len(audio)
 
-        # n_keys = MAX_MIDI - MIN_MIDI + 1
         n_keys = 8
-        n_steps = (audio_length - 1) // HOP_LENGTH + 1
+        n_steps = (audio_length - 1) // HOP_LENGTH
 
         label = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
-        velocity = torch.zeros(n_steps, n_keys, dtype=torch.uint8)
+        velocity = torch.zeros(n_steps, n_keys, dtype=torch.float)
 
         tsv_path = tsv_path
         midi = np.loadtxt(tsv_path, delimiter='\t', skiprows=1)
@@ -124,11 +123,11 @@ class PianoRollAudioDataset(Dataset):
 class GROOVE(PianoRollAudioDataset):
 
     def __init__(self, path='data/GROOVE', groups=None, sequence_length=None, seed=42, device=DEFAULT_DEVICE):
-        super().__init__(path, groups if groups is not None else ['drummer10', 'drummer7'], sequence_length, seed, device)
+        super().__init__(path, groups if groups is not None else ['test_20'], sequence_length, seed, device)
 
     @classmethod
     def available_groups(cls):
-        return ['drummer1', 'drummer3', 'drummer4', 'drummer5', 'drummer8', 'drummer9']
+        return ['train']
 
     def files(self, group):
         flacs = sorted(glob(os.path.join(self.path, group, '**', '*.flac'), recursive=True))

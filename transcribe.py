@@ -30,7 +30,7 @@ def load_and_process_audio(flac_path, sequence_length, device):
     else:
         audio = audio.to(device)
 
-    audio = audio.float().div_(32768.0)
+    audio = audio.float().div_(SEQUENCE_LENGTH)
 
     return audio
 

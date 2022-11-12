@@ -63,7 +63,8 @@ class OnsetsAndFrames(nn.Module):
         )
         self.velocity_stack = nn.Sequential(
             ConvStack(input_features, model_size),
-            nn.Linear(model_size, output_features)
+            nn.Linear(model_size, output_features),
+            nn.Sigmoid()
         )
 
     def forward(self, mel):
@@ -84,9 +85,13 @@ class OnsetsAndFrames(nn.Module):
             'velocity': velocity_pred.reshape(*velocity_label.shape)
         }
 
+        predictions['velocity'] = predictions['velocity'] * onset_label
+        velocity_label = velocity_label * onset_label
+
         losses = {
             'loss/onset': F.binary_cross_entropy(predictions['onset'], onset_label),
-            'loss/velocity': self.velocity_loss(predictions['velocity'], velocity_label, onset_label)
+            # 'loss/velocity': self.velocity_loss(predictions['velocity'], velocity_label, onset_label)
+            'loss/velocity': F.binary_cross_entropy(predictions['velocity'], velocity_label)
         }
 
         return predictions, losses
@@ -96,5 +101,4 @@ class OnsetsAndFrames(nn.Module):
         if denominator.item() == 0:
             return denominator
         else:
-            return (onset_label * (velocity_label - velocity_pred) ** 2).sum() / denominator
-
+            return (onset_label * (velocity_label - velocity_pred) ** 2).sum() / denominator * 0.5
