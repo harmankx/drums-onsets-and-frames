@@ -7,6 +7,7 @@ import numpy as np
 import soundfile
 from torch.utils.data import Dataset
 from tqdm import tqdm
+import math
 
 from .constants import *
 from .midi import parse_midi
@@ -31,14 +32,32 @@ class PianoRollAudioDataset(Dataset):
         data = self.data[index]
         result = dict(path=data['path'])
 
+        audio_length = len(data['audio'])
+
+        # if(audio_length < self.sequence_length):
+        #     lengthen = int(math.ceil(self.sequence_length/audio_length)) + 1
+        #     data['audio'] = data['audio'].repeat(lengthen)
+        #     data['label'] = data['label'].repeat(lengthen, 1)
+        #     data['velocity'] = data['velocity'].repeat(lengthen, 1)
+        # audio_length = len(data['audio'])
+
         if self.sequence_length is not None:
-            audio_length = len(data['audio'])
             step_begin = self.random.randint(audio_length - self.sequence_length) // HOP_LENGTH
             n_steps = self.sequence_length // HOP_LENGTH
+
             step_end = step_begin + n_steps
+
+            # if(step_end > data['label'].shape[0]):
+            #     diff = step_end - data['label'].shape[0]
+            #     step_end -= diff
+            #     step_begin -= diff
+
 
             begin = step_begin * HOP_LENGTH
             end = begin + self.sequence_length
+
+
+
 
             result['audio'] = data['audio'][begin:end].to(self.device)
             result['label'] = data['label'][step_begin:step_end, :].to(self.device)
@@ -48,7 +67,7 @@ class PianoRollAudioDataset(Dataset):
             result['label'] = data['label'].to(self.device)
             result['velocity'] = data['velocity'].to(self.device).float()
 
-        result['audio'] = result['audio'].float().div_(SEQUENCE_LENGTH * 1.0)
+        result['audio'] = result['audio'].float().div_(SEQUENCE_LENGTH)
         result['onset'] = (result['label'] == 1).float()
         result['velocity'] = result['velocity'].float()
 

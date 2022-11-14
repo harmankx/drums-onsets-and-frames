@@ -23,7 +23,7 @@ ex = Experiment('train_transcriber')
 def config():
     logdir = 'runs/transcriber-' + datetime.now().strftime('%y%m%d-%H%M%S')
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    iterations = 500
+    iterations = 10000
     resume_iteration = None
     checkpoint_interval = 1000
     train_on = 'MAESTRO'
@@ -60,11 +60,11 @@ def train(logdir, device, iterations, resume_iteration, checkpoint_interval, tra
     os.makedirs(logdir, exist_ok=True)
     writer = SummaryWriter(logdir)
 
-    dataset = GROOVE(groups=['train_20'], sequence_length=sequence_length)
+    dataset = GROOVE(groups=['train'], sequence_length=sequence_length)
     train_eval_sets = []
     # train_eval_sets.append(GROOVE(groups=['train_20'], sequence_length=sequence_length))
-    train_eval = GROOVE(groups=['train_20'], sequence_length=sequence_length)
-    validation_dataset = GROOVE(groups=['validation_20'], sequence_length=validation_length)
+    train_eval = GROOVE(groups=['train'], sequence_length=sequence_length)
+    validation_dataset = GROOVE(groups=['validation'], sequence_length=validation_length)
 
     loader = DataLoader(dataset, batch_size, shuffle=True, drop_last=True)
 
