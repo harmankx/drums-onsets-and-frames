@@ -8,6 +8,7 @@ import soundfile
 from torch.utils.data import Dataset
 from tqdm import tqdm
 import math
+from torch import nn
 
 from .constants import *
 from .midi import parse_midi
@@ -34,42 +35,48 @@ class PianoRollAudioDataset(Dataset):
 
         audio_length = len(data['audio'])
 
-        # if(audio_length < self.sequence_length):
-        #     lengthen = int(math.ceil(self.sequence_length/audio_length)) + 1
-        #     data['audio'] = data['audio'].repeat(lengthen)
-        #     data['label'] = data['label'].repeat(lengthen, 1)
-        #     data['velocity'] = data['velocity'].repeat(lengthen, 1)
-        # audio_length = len(data['audio'])
+        shorter = False
 
-        if self.sequence_length is not None:
+        if self.sequence_length is not None and audio_length > self.sequence_length:
             step_begin = self.random.randint(audio_length - self.sequence_length) // HOP_LENGTH
             n_steps = self.sequence_length // HOP_LENGTH
 
             step_end = step_begin + n_steps
 
-            # if(step_end > data['label'].shape[0]):
-            #     diff = step_end - data['label'].shape[0]
-            #     step_end -= diff
-            #     step_begin -= diff
-
-
             begin = step_begin * HOP_LENGTH
             end = begin + self.sequence_length
-
-
-
 
             result['audio'] = data['audio'][begin:end].to(self.device)
             result['label'] = data['label'][step_begin:step_end, :].to(self.device)
             result['velocity'] = data['velocity'][step_begin:step_end, :].to(self.device)
         else:
+            shorter = True
             result['audio'] = data['audio'].to(self.device)
             result['label'] = data['label'].to(self.device)
             result['velocity'] = data['velocity'].to(self.device).float()
 
-        result['audio'] = result['audio'].float().div_(SEQUENCE_LENGTH)
+        result['audio'] = result['audio'].float().div_(32768.0)
         result['onset'] = (result['label'] == 1).float()
         result['velocity'] = result['velocity'].float()
+    
+        # print(f'audio: {result["audio"].shape} onset: {result["onset"].shape}')
+        
+        if shorter:
+            pad = 0
+            if((self.sequence_length - result['audio'].shape[0]) % 2 != 0):
+                pad = 1
+
+            result['audio'] = nn.ConstantPad1d(((self.sequence_length - result['audio'].shape[0]) // 2, (self.sequence_length - result['audio'].shape[0]) // 2 + pad), 0)(result['audio'])
+
+            pad = 0
+            if((self.sequence_length // HOP_LENGTH - result['onset'].shape[0]) % 2 != 0):
+                pad = 1
+            
+            result['onset'] = nn.ConstantPad2d((0, 0, (self.sequence_length // HOP_LENGTH - result['onset'].shape[0]) // 2, (self.sequence_length // HOP_LENGTH - result['onset'].shape[0]) // 2 + pad), 0)(result['onset'])
+            result['velocity'] = nn.ConstantPad2d((0, 0, (self.sequence_length // HOP_LENGTH - result['velocity'].shape[0]) // 2, (self.sequence_length // HOP_LENGTH - result['velocity'].shape[0]) // 2 + pad), 0)(result['velocity'])
+            result['label'] = nn.ConstantPad2d((0, 0, (self.sequence_length // HOP_LENGTH - result['label'].shape[0]) // 2, (self.sequence_length // HOP_LENGTH - result['label'].shape[0]) // 2 + pad), 0)(result['label'])
+
+        # print(f'result[audio]: {result["audio"].shape} result[onset]: {result["onset"].shape} result[velocity]: {result["velocity"].shape}')
 
         return result
 
@@ -142,7 +149,7 @@ class PianoRollAudioDataset(Dataset):
 class GROOVE(PianoRollAudioDataset):
 
     def __init__(self, path='data/GROOVE', groups=None, sequence_length=None, seed=42, device=DEFAULT_DEVICE):
-        super().__init__(path, groups if groups is not None else ['test_20'], sequence_length, seed, device)
+        super().__init__(path, groups if groups is not None else ['validation_normalized'], sequence_length, seed, device)
 
     @classmethod
     def available_groups(cls):

@@ -13,6 +13,8 @@ from mir_eval.transcription_velocity import precision_recall_f1_overlap as evalu
 from mir_eval.util import midi_to_hz
 from scipy.stats import hmean
 from tqdm import tqdm
+import pandas as pd
+from matplotlib import pyplot as plt
 
 import onsets_and_frames.dataset as dataset_module
 from onsets_and_frames import *
@@ -30,8 +32,12 @@ def split_midi(pitches, intervals, velocity, midi):
     v = midi_combined[:, 3].reshape(-1)
     return p, i, v
 
+correct_list = []
+incorrect_list = []
+
 def evaluate(data, model, onset_threshold=0.5, frame_threshold=0.5, save_path=None):
     metrics = defaultdict(list)
+
 
     for label in data:
         pred, losses = model.run_on_batch(label)
@@ -39,7 +45,7 @@ def evaluate(data, model, onset_threshold=0.5, frame_threshold=0.5, save_path=No
         for key, loss in losses.items():
             metrics[key].append(loss.item())
 
-        for key, value in pred.items():
+        for key, value in pred.items(): # used for Linear Regression to remove negative values
             value.squeeze_(0).relu_()
 
         p_ref, i_ref, v_ref = extract_notes(label['onset'], label['velocity'])
@@ -60,11 +66,20 @@ def evaluate(data, model, onset_threshold=0.5, frame_threshold=0.5, save_path=No
             p, r, f, o = evaluate_notes(int_ref, pitch_ref, int_est, pitch_est, offset_ratio=None)
             metrics['metric/' + str(HIT_MAPS_NAMES[hit]) + '/f1'].append(f)
 
-            p, r, f, o = evaluate_notes_with_velocity2(int_ref, pitch_ref, vel_ref, int_est, pitch_est, vel_est,
+            p, r, f, loss = evaluate_notes_with_velocity2(int_ref, pitch_ref, vel_ref, int_est, pitch_est, vel_est,
                                                     offset_ratio=None, velocity_tolerance=0.1)
+
             metrics['metric/' + str(HIT_MAPS_NAMES[hit]) + '-with-velocity/f1'].append(f)
 
         i_ref = (i_ref * scaling).reshape(-1, 2)
+        invalid = False
+        for midi in p_est:
+            if midi == 0:
+                invalid = True
+                
+        if invalid:
+            continue
+
         p_ref = np.array([midi_to_hz(HIT_MAPS_ENCODE[midi]) for midi in p_ref])
         i_est = (i_est * scaling).reshape(-1, 2)
         p_est = np.array([midi_to_hz(HIT_MAPS_ENCODE[midi]) for midi in p_est])
@@ -75,12 +90,13 @@ def evaluate(data, model, onset_threshold=0.5, frame_threshold=0.5, save_path=No
         metrics['metric/total/f1'].append(f)
         onset_f = f
 
-        p, r, f, o = evaluate_notes_with_velocity2(i_ref, p_ref, v_ref, i_est, p_est, v_est,
+        p, r, f, loss = evaluate_notes_with_velocity2(i_ref, p_ref, v_ref, i_est, p_est, v_est,
                                                   offset_ratio=None, velocity_tolerance=0.1)
         metrics['metric/total-with-velocity/precision'].append(p)
         metrics['metric/total-with-velocity/recall'].append(r)
         metrics['metric/total-with-velocity/f1'].append(f)
         metrics['path'].append(label["path"])
+        metrics['metric/total-with-velocity/loss'].append(loss)
 
         # if not model.training:
         #     print(f'f1: {str(onset_f):30s} velocity/f1: {str(f):30s} file: {str(label["path"]):30s}')
@@ -93,6 +109,15 @@ def evaluate(data, model, onset_threshold=0.5, frame_threshold=0.5, save_path=No
             save_pianoroll(pred_path, pred['onset'])
             midi_path = os.path.join(save_path, os.path.basename(label['path']) + '.pred.mid')
             save_midi(midi_path, p_est, i_est, v_est)
+
+    
+    # plt.figure()
+    # plt.hist([correct_list,incorrect_list], bins=13, stacked=True, density=True, edgecolor='black', color=['green', 'orange'], alpha=0.5, label=['correct', 'total'])
+    # plt.xlabel("Velocity")
+    # plt.ylabel("Frequency")
+    # plt.title("LINEAR MODEL")
+    # plt.legend()
+    # plt.show()
 
     return metrics
 
@@ -126,7 +151,7 @@ def evaluate_notes_with_velocity2(ref_intervals, ref_pitches, ref_velocities, es
     if len(ref_pitches) == 0 or len(est_pitches) == 0:
         return 0., 0., 0., 0.
 
-    matching = match_notes(
+    matching, loss = match_notes(
         ref_intervals, ref_pitches, ref_velocities, est_intervals, est_pitches,
         est_velocities, onset_tolerance, pitch_tolerance, offset_ratio,
         offset_min_tolerance, strict, velocity_tolerance)
@@ -137,7 +162,7 @@ def evaluate_notes_with_velocity2(ref_intervals, ref_pitches, ref_velocities, es
 
     avg_overlap_ratio = transcription.average_overlap_ratio(
         ref_intervals, est_intervals, matching)
-    return precision, recall, f_measure, avg_overlap_ratio
+    return precision, recall, f_measure, loss
 
 def match_notes(
         ref_intervals, ref_pitches, ref_velocities, est_intervals, est_pitches,
@@ -155,24 +180,30 @@ def match_notes(
     matching = np.array(matching)
     # When there is no matching, return an empty list
     if matching.size == 0:
-        return []
+        return [], None
     # Grab velocities for matched notes
     ref_matched_velocities = ref_velocities[matching[:, 0]]
     est_matched_velocities = est_velocities[matching[:, 1]]
 
     velocity_diff = np.abs(est_matched_velocities - ref_matched_velocities)
+    dist = np.linalg.norm(est_matched_velocities-ref_matched_velocities)
     # Check whether each error is within the provided tolerance
     velocity_within_tolerance = (velocity_diff < velocity_tolerance)
     # Only keep matches whose velocity was within the provided tolerance
     matching = matching[velocity_within_tolerance]
+
+    for i in range(len(matching)):
+        if(velocity_within_tolerance[i]):
+            correct_list.append(ref_velocities[i])
+        incorrect_list.append(ref_velocities[i])
     # Convert back to list-of-tuple format
     matching = [tuple(_) for _ in matching]
 
-    return matching
+    return matching, dist
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('model_file', nargs='?', type=str, default='runs/transcriber-CE-20/model-50000.pt')
+    parser.add_argument('model_file', nargs='?', type=str) #default='runs/transcriber-AUDIO-NORMALIZED/model-30000.pt'
     parser.add_argument('dataset', nargs='?', default='GROOVE')
     parser.add_argument('dataset_group', nargs='?', default=None)
     parser.add_argument('--save-path', default=None)

@@ -33,10 +33,15 @@ def parse_midi(path):
         if onset['velocity'] == 0:
             continue
 
-        note = (onset['time'], onset['note'], onset['velocity']/127.0)
+        note = (onset['time'], onset['note'], onset['velocity'])
         notes.append(note)
 
-    return np.array(notes)
+    notes = np.array(notes)
+    velocities = notes[:, 2]
+    if(int(np.max(velocities) - np.min(velocities)) != 0):
+        velocities = (velocities - np.min(velocities)) / (np.max(velocities) - np.min(velocities))
+        notes[:, 2] = velocities
+    return notes
 
 
 def save_midi(path, pitches, intervals, velocities):

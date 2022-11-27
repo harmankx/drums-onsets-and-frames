@@ -2,8 +2,10 @@ import argparse
 import os
 import sys
 
+from pydub import AudioSegment
 import numpy as np
 import soundfile
+from pydub.utils import make_chunks
 from mir_eval.util import midi_to_hz
 
 from onsets_and_frames import *
@@ -12,6 +14,26 @@ from onsets_and_frames import *
 def load_and_process_audio(flac_path, sequence_length, device):
 
     random = np.random.RandomState(seed=42)
+
+
+    song = AudioSegment.from_file(flac_path, format='flac')
+    song_normal = set_loudness(song, -20)
+    print(f"before: {song.dBFS}     after: {song_normal.dBFS}")
+
+    name = flac_path.split('/')[-1]
+    path = flac_path.split('/')
+
+    path = path[:len(path)-1]
+
+    path = os.path.join(*path)
+    path = path + '_normalized'
+    if not os.path.isdir(path):
+        os.makedirs(path)
+
+    flac_path = os.path.join(path, name)
+    # save the output
+    song_normal.export(os.path.join(path, name), "flac")
+
 
     audio, sr = soundfile.read(flac_path, dtype='int16')
     assert sr == SAMPLE_RATE
@@ -34,6 +56,12 @@ def load_and_process_audio(flac_path, sequence_length, device):
 
     return audio
 
+def get_loudness(sound, slice_size=20*1000):
+    return max(chunk.dBFS for chunk in make_chunks(sound, slice_size))
+
+def set_loudness(sound, target_dBFS):
+    loudness_difference = target_dBFS - get_loudness(sound)
+    return sound.apply_gain(loudness_difference)
 
 def transcribe(model, audio):
 
@@ -53,7 +81,7 @@ def transcribe_file(model_file, flac_paths, save_path, sequence_length,
 
     model = torch.load(model_file, map_location=device).eval()
     summary(model)
-
+ 
     for flac_path in flac_paths:
         print(f'Processing {flac_path}...', file=sys.stderr)
         audio = load_and_process_audio(flac_path, sequence_length, device)
@@ -66,7 +94,7 @@ def transcribe_file(model_file, flac_paths, save_path, sequence_length,
         i_est = (i_est * scaling).reshape(-1, 2)
 
         p_est = np.array([midi_to_hz(HIT_MAPS_ENCODE[midi]) for midi in p_est])
-
+        
         os.makedirs(save_path, exist_ok=True)
         pred_path = os.path.join(save_path, os.path.basename(flac_path) + '.pred.png')
         # save_pianoroll(pred_path, predictions['onset'])
@@ -77,7 +105,7 @@ def transcribe_file(model_file, flac_paths, save_path, sequence_length,
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('model_file', type=str)
-    parser.add_argument('flac_paths', type=str, nargs='+')
+    parser.add_argument('flac_paths', nargs='+', type=str)
     parser.add_argument('--save-path', type=str, default='.')
     parser.add_argument('--sequence-length', default=None, type=int)
     parser.add_argument('--onset-threshold', default=0.5, type=float)
