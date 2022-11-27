@@ -148,7 +148,7 @@ class PianoRollAudioDataset(Dataset):
 
 class GROOVE(PianoRollAudioDataset):
 
-    def __init__(self, path='data/GROOVE', groups=None, sequence_length=None, seed=42, device=DEFAULT_DEVICE):
+    def __init__(self, path='data/GROOVE_441', groups=None, sequence_length=None, seed=42, device=DEFAULT_DEVICE):
         super().__init__(path, groups if groups is not None else ['validation_normalized'], sequence_length, seed, device)
 
     @classmethod
