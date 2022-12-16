@@ -20,5 +20,5 @@ python train.py
 To evaluate the trained model, run the following command:
 
 ```bash
-python evaluate.py runs/LOGDRUMS/model-150000.pt --save-path output/
+python evaluate.py runs/LOGDRUMS/model-150000.pt
 ```
