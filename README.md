@@ -4,7 +4,7 @@ This is a [PyTorch](https://pytorch.org/) implementation of Google's [Oaf-Drums]
 
 ### Downloading Dataset
 
-The `data` directory contains the Groove MIDI Dataset.
+To download the dataset, run the ./prepare_groove.sh file
 
 ### Training
 
