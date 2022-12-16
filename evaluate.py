@@ -96,15 +96,6 @@ def evaluate(data, model, onset_threshold=0.5, frame_threshold=0.5, save_path=No
         metrics['metric/total-with-velocity/f1'].append(f)
         metrics['path'].append(label["path"])
         metrics['metric/total-with-velocity/loss'].append(loss)
-
-        if save_path is not None:
-            os.makedirs(save_path, exist_ok=True)
-            label_path = os.path.join(save_path, os.path.basename(label['path']) + '.label.png')
-            save_pianoroll(label_path, label['onset'])
-            pred_path = os.path.join(save_path, os.path.basename(label['path']) + '.pred.png')
-            save_pianoroll(pred_path, pred['onset'])
-            midi_path = os.path.join(save_path, os.path.basename(label['path']) + '.pred.mid')
-            save_midi(midi_path, p_est, i_est, v_est)
     return metrics
 
 
@@ -192,7 +183,7 @@ def match_notes(
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('model_file', nargs='?', type=str, default='runs/transcriber-FINAL-LINEAR-OG/model-120000.pt') #default='runs/transcriber-AUDIO-NORMALIZED/model-30000.pt'
+    parser.add_argument('model_file', nargs='?', type=str)
     parser.add_argument('dataset', nargs='?', default='GROOVE')
     parser.add_argument('dataset_group', nargs='?', default=None)
     parser.add_argument('--save-path', default=None)

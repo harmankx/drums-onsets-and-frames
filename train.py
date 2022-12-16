@@ -24,7 +24,7 @@ ex = Experiment('train_transcriber')
 def config():
     logdir = 'runs/transcriber-' + datetime.now().strftime('%y%m%d-%H%M%S')
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    iterations = 15000
+    iterations = 150000
     resume_iteration = None
     checkpoint_interval = 1000
     train_on = 'GROOVE'
