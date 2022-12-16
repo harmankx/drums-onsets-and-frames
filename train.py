@@ -24,7 +24,7 @@ ex = Experiment('train_transcriber')
 def config():
     logdir = 'runs/transcriber-' + datetime.now().strftime('%y%m%d-%H%M%S')
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    iterations = 120000
+    iterations = 15000
     resume_iteration = None
     checkpoint_interval = 1000
     train_on = 'GROOVE'
@@ -60,9 +60,9 @@ def train(logdir, device, iterations, resume_iteration, checkpoint_interval, tra
     os.makedirs(logdir, exist_ok=True)
     writer = SummaryWriter(logdir)
 
-    dataset = GROOVE(groups=['train_normalized'], sequence_length=sequence_length)
-    train_eval = GROOVE(groups=['train_normalized'], sequence_length=sequence_length)
-    validation_dataset = GROOVE(groups=['validation_normalized'], sequence_length=validation_length)
+    dataset = GROOVE(groups=['train_normalizedTo15db'], sequence_length=sequence_length)
+    train_eval = GROOVE(groups=['train_normalizedTo15db'], sequence_length=sequence_length)
+    validation_dataset = GROOVE(groups=['validation_normalizedTo15db'], sequence_length=validation_length)
 
     loader = DataLoader(dataset, batch_size, shuffle=True, drop_last=True)
 
@@ -164,57 +164,6 @@ def train(logdir, device, iterations, resume_iteration, checkpoint_interval, tra
 
             torch.save(model, os.path.join(logdir, f'model-{i}.pt'))
             torch.save(optimizer.state_dict(), os.path.join(logdir, 'last-optimizer-state.pt'))
-
-
-            path = os.path.join(logdir, f'plots-{i}')
-            if not os.path.isdir(path):
-                os.makedirs(path)
-
-            # total loss
-            plt.plot(train_iter, train_losses, label = "Train Loss")
-            plt.plot(val_iter, val_losses, label = "Val Loss")
-            plt.xlabel('Iterations')
-            plt.ylabel('Loss')
-            # plt.yscale('log')
-            plt.legend()
-            plt.title("Total Loss")
-            plt.savefig(os.path.join(path, 'total-loss.png'), format='png')
-            # plt.show()
-            plt.close()
-
-            # vel loss
-            plt.plot(train_iter, train_vel_losses, label = "Train Velocity Loss")
-            plt.plot(val_iter, val_vel_losses, label = "Val Velocity Loss")
-            plt.xlabel('Iterations')
-            plt.ylabel('Loss')
-            # plt.yscale('log')
-            plt.legend()
-            plt.title("Velocity Loss")
-            plt.savefig(os.path.join(path, 'velocity-loss.png'), format='png')
-            # plt.show()
-            plt.close()
-
-            # onset loss
-            plt.plot(train_iter, train_onset_losses, label = "Train Onset Loss")
-            plt.plot(val_iter, val_onset_losses, label = "Val Onset Loss")
-            plt.xlabel('Iterations')
-            plt.ylabel('Loss')
-            # plt.yscale('log')
-            plt.legend()
-            plt.title("Onset Loss")
-            plt.savefig(os.path.join(path, 'onset-loss.png'), format='png')
-            # plt.show()
-            plt.close()
-
-            # accuracy plot
-            plt.plot(train_iter, train_acc, label = "Train Accuracy")
-            plt.plot(val_iter, val_acc, label = "Val Accuracy")
-            plt.xlabel('Iterations')
-            plt.ylabel('Accuracy')
-            plt.legend()
-            plt.savefig(os.path.join(path, 'accuracy.png'), format='png')
-            # plt.show()
-            plt.close()
 
     path = os.path.join(logdir, 'accuracies')
     if not os.path.isdir(path):

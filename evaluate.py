@@ -66,8 +66,7 @@ def evaluate(data, model, onset_threshold=0.5, frame_threshold=0.5, save_path=No
             p, r, f, o = evaluate_notes(int_ref, pitch_ref, int_est, pitch_est, offset_ratio=None)
             metrics['metric/' + str(HIT_MAPS_NAMES[hit]) + '/f1'].append(f)
 
-            p, r, f, loss = evaluate_notes_with_velocity2(int_ref, pitch_ref, vel_ref, int_est, pitch_est, vel_est,
-                                                    offset_ratio=None, velocity_tolerance=0.1)
+            p, r, f, loss = evaluate_notes_with_velocity2(int_ref, pitch_ref, vel_ref, int_est, pitch_est, vel_est, offset_ratio=None, velocity_tolerance=0.1)
 
             metrics['metric/' + str(HIT_MAPS_NAMES[hit]) + '-with-velocity/f1'].append(f)
 
@@ -98,9 +97,6 @@ def evaluate(data, model, onset_threshold=0.5, frame_threshold=0.5, save_path=No
         metrics['path'].append(label["path"])
         metrics['metric/total-with-velocity/loss'].append(loss)
 
-        # if not model.training:
-        #     print(f'f1: {str(onset_f):30s} velocity/f1: {str(f):30s} file: {str(label["path"]):30s}')
-
         if save_path is not None:
             os.makedirs(save_path, exist_ok=True)
             label_path = os.path.join(save_path, os.path.basename(label['path']) + '.label.png')
@@ -109,16 +105,6 @@ def evaluate(data, model, onset_threshold=0.5, frame_threshold=0.5, save_path=No
             save_pianoroll(pred_path, pred['onset'])
             midi_path = os.path.join(save_path, os.path.basename(label['path']) + '.pred.mid')
             save_midi(midi_path, p_est, i_est, v_est)
-
-    
-    # plt.figure()
-    # plt.hist([correct_list,incorrect_list], bins=13, stacked=True, density=True, edgecolor='black', color=['green', 'orange'], alpha=0.5, label=['correct', 'total'])
-    # plt.xlabel("Velocity")
-    # plt.ylabel("Frequency")
-    # plt.title("LINEAR MODEL")
-    # plt.legend()
-    # plt.show()
-
     return metrics
 
 
@@ -141,6 +127,9 @@ def evaluate_file(model_file, dataset, dataset_group, sequence_length, save_path
             print(f'{category:>32} {name:25}: {np.mean(values):.3f} ± {np.std(values):.3f}')
 
 
+'''
+    Reimplementing mir_eval functions to not use a linear regression between predicted and labels
+'''
 def evaluate_notes_with_velocity2(ref_intervals, ref_pitches, ref_velocities, est_intervals, est_pitches,
         est_velocities, onset_tolerance=0.05, pitch_tolerance=50.0,
         offset_ratio=0.2, offset_min_tolerance=0.05, strict=False,
@@ -203,7 +192,7 @@ def match_notes(
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('model_file', nargs='?', type=str) #default='runs/transcriber-AUDIO-NORMALIZED/model-30000.pt'
+    parser.add_argument('model_file', nargs='?', type=str, default='runs/transcriber-FINAL-LINEAR-OG/model-120000.pt') #default='runs/transcriber-AUDIO-NORMALIZED/model-30000.pt'
     parser.add_argument('dataset', nargs='?', default='GROOVE')
     parser.add_argument('dataset_group', nargs='?', default=None)
     parser.add_argument('--save-path', default=None)

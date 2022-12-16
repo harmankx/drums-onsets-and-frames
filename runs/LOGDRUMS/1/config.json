@@ -1,0 +1,19 @@
+{
+  "batch_size": 4,
+  "checkpoint_interval": 1000,
+  "clip_gradient_norm": 3,
+  "device": "cuda",
+  "iterations": 150000,
+  "learning_rate": 0.0006,
+  "learning_rate_decay_rate": 0.98,
+  "learning_rate_decay_steps": 10000,
+  "leave_one_out": null,
+  "logdir": "runs/transcriber-221208-204459",
+  "model_complexity": 16,
+  "resume_iteration": null,
+  "seed": 709935920,
+  "sequence_length": 677376,
+  "train_on": "GROOVE",
+  "validation_interval": 1000,
+  "validation_length": 677376
+}

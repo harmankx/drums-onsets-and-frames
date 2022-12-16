@@ -57,17 +57,18 @@ class OnsetsAndFrames(nn.Module):
         sequence_model = lambda input_size, output_size: BiLSTM(input_size, output_size // 2)
 
         self.onset_stack = nn.Sequential(
-            ConvStack(input_features, model_size),
-            sequence_model(model_size, model_size),
-            nn.Linear(model_size, output_features),
+            ConvStack(input_features, model_size//4),
+            sequence_model(model_size//4, model_size//2),
+            nn.Linear(model_size//2, output_features),
             nn.Sigmoid()
         )
+
         self.velocity_stack = nn.Sequential(
             ConvStack(input_features, model_size),
             nn.Linear(model_size, output_features),
             nn.Sigmoid()
         )
-
+        
     def forward(self, mel):
         onset_pred = self.onset_stack(mel)
         velocity_pred = self.velocity_stack(mel)
@@ -90,15 +91,7 @@ class OnsetsAndFrames(nn.Module):
 
         losses = {
             'loss/onset': F.binary_cross_entropy(predictions['onset'], onset_label),
-            # 'loss/velocity': self.velocity_loss(predictions['velocity'], velocity_label, onset_label)
             'loss/velocity': F.binary_cross_entropy(pred_on_label, velocity_label)
         }
 
         return predictions, losses
-
-    def velocity_loss(self, velocity_pred, velocity_label, onset_label):
-        denominator = onset_label.sum()
-        if denominator.item() == 0:
-            return denominator
-        else:
-            return (onset_label * (velocity_label - velocity_pred) ** 2).sum() / denominator

@@ -27,7 +27,10 @@ class PianoRollAudioDataset(Dataset):
               f"of {self.__class__.__name__} at {path}")
         for group in groups:
             for input_files in tqdm(self.files(group), desc='Loading group %s' % group):
-                self.data.append(self.load(*input_files))
+                files = self.load(*input_files)
+                length = files['audio'].shape[0]
+                if length >= SEQUENCE_LENGTH:
+                    self.data.append(files)
 
     def __getitem__(self, index):
         data = self.data[index]
@@ -35,10 +38,8 @@ class PianoRollAudioDataset(Dataset):
 
         audio_length = len(data['audio'])
 
-        shorter = False
-
-        if self.sequence_length is not None and audio_length > self.sequence_length:
-            step_begin = self.random.randint(audio_length - self.sequence_length) // HOP_LENGTH
+        if self.sequence_length is not None:
+            step_begin = ((self.random.randint(audio_length - self.sequence_length)) // HOP_LENGTH) 
             n_steps = self.sequence_length // HOP_LENGTH
 
             step_end = step_begin + n_steps
@@ -58,26 +59,6 @@ class PianoRollAudioDataset(Dataset):
         result['audio'] = result['audio'].float().div_(32768.0)
         result['onset'] = (result['label'] == 1).float()
         result['velocity'] = result['velocity'].float()
-    
-        # print(f'audio: {result["audio"].shape} onset: {result["onset"].shape}')
-        
-        if shorter:
-            pad = 0
-            if((self.sequence_length - result['audio'].shape[0]) % 2 != 0):
-                pad = 1
-
-            result['audio'] = nn.ConstantPad1d(((self.sequence_length - result['audio'].shape[0]) // 2, (self.sequence_length - result['audio'].shape[0]) // 2 + pad), 0)(result['audio'])
-
-            pad = 0
-            if((self.sequence_length // HOP_LENGTH - result['onset'].shape[0]) % 2 != 0):
-                pad = 1
-            
-            result['onset'] = nn.ConstantPad2d((0, 0, (self.sequence_length // HOP_LENGTH - result['onset'].shape[0]) // 2, (self.sequence_length // HOP_LENGTH - result['onset'].shape[0]) // 2 + pad), 0)(result['onset'])
-            result['velocity'] = nn.ConstantPad2d((0, 0, (self.sequence_length // HOP_LENGTH - result['velocity'].shape[0]) // 2, (self.sequence_length // HOP_LENGTH - result['velocity'].shape[0]) // 2 + pad), 0)(result['velocity'])
-            result['label'] = nn.ConstantPad2d((0, 0, (self.sequence_length // HOP_LENGTH - result['label'].shape[0]) // 2, (self.sequence_length // HOP_LENGTH - result['label'].shape[0]) // 2 + pad), 0)(result['label'])
-
-        # print(f'result[audio]: {result["audio"].shape} result[onset]: {result["onset"].shape} result[velocity]: {result["velocity"].shape}')
-
         return result
 
     def __len__(self):
@@ -147,9 +128,8 @@ class PianoRollAudioDataset(Dataset):
         return data
 
 class GROOVE(PianoRollAudioDataset):
-
     def __init__(self, path='data/GROOVE_441', groups=None, sequence_length=None, seed=42, device=DEFAULT_DEVICE):
-        super().__init__(path, groups if groups is not None else ['validation_normalized'], sequence_length, seed, device)
+        super().__init__(path, groups if groups is not None else ['test_normalizedTo15db'], sequence_length, seed, device)
 
     @classmethod
     def available_groups(cls):

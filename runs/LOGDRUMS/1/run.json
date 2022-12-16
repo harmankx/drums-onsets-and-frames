@@ -1,0 +1,174 @@
+{
+  "artifacts": [],
+  "command": "train",
+  "experiment": {
+    "base_dir": "/home/student/Honours/drums-onsets-and-frames",
+    "dependencies": [
+      "matplotlib==3.6.2",
+      "numpy==1.21.5",
+      "pandas==1.5.1",
+      "sacred==0.8.2",
+      "torch==1.13.0",
+      "tqdm==4.64.1"
+    ],
+    "mainfile": "train.py",
+    "name": "train_transcriber",
+    "repositories": [
+      {
+        "commit": "73411fedbd4c7211fc38a975e548795ba52a9bc8",
+        "dirty": true,
+        "url": "https://github.com/harmankx/drums-onsets-and-frames"
+      },
+      {
+        "commit": "73411fedbd4c7211fc38a975e548795ba52a9bc8",
+        "dirty": true,
+        "url": "https://github.com/harmankx/drums-onsets-and-frames"
+      },
+      {
+        "commit": "73411fedbd4c7211fc38a975e548795ba52a9bc8",
+        "dirty": true,
+        "url": "https://github.com/harmankx/drums-onsets-and-frames"
+      },
+      {
+        "commit": "73411fedbd4c7211fc38a975e548795ba52a9bc8",
+        "dirty": true,
+        "url": "https://github.com/harmankx/drums-onsets-and-frames"
+      },
+      {
+        "commit": "73411fedbd4c7211fc38a975e548795ba52a9bc8",
+        "dirty": true,
+        "url": "https://github.com/harmankx/drums-onsets-and-frames"
+      },
+      {
+        "commit": "73411fedbd4c7211fc38a975e548795ba52a9bc8",
+        "dirty": true,
+        "url": "https://github.com/harmankx/drums-onsets-and-frames"
+      },
+      {
+        "commit": "73411fedbd4c7211fc38a975e548795ba52a9bc8",
+        "dirty": true,
+        "url": "https://github.com/harmankx/drums-onsets-and-frames"
+      },
+      {
+        "commit": "73411fedbd4c7211fc38a975e548795ba52a9bc8",
+        "dirty": true,
+        "url": "https://github.com/harmankx/drums-onsets-and-frames"
+      },
+      {
+        "commit": "73411fedbd4c7211fc38a975e548795ba52a9bc8",
+        "dirty": true,
+        "url": "https://github.com/harmankx/drums-onsets-and-frames"
+      },
+      {
+        "commit": "73411fedbd4c7211fc38a975e548795ba52a9bc8",
+        "dirty": true,
+        "url": "https://github.com/harmankx/drums-onsets-and-frames"
+      },
+      {
+        "commit": "73411fedbd4c7211fc38a975e548795ba52a9bc8",
+        "dirty": true,
+        "url": "https://github.com/harmankx/drums-onsets-and-frames"
+      }
+    ],
+    "sources": [
+      [
+        "evaluate.py",
+        "_sources/evaluate_badf549a22a216de97805336d1787d92.py"
+      ],
+      [
+        "onsets_and_frames/__init__.py",
+        "_sources/__init___ee18dd7c96396ea0b91138a3c8f5e4db.py"
+      ],
+      [
+        "onsets_and_frames/constants.py",
+        "_sources/constants_6e4d5f36faf74f1575f1cdd6948a0547.py"
+      ],
+      [
+        "onsets_and_frames/dataset.py",
+        "_sources/dataset_2076b552dceb646dd58f5851bc849644.py"
+      ],
+      [
+        "onsets_and_frames/decoding.py",
+        "_sources/decoding_94088eaf4dbe3f0c2617c41ad9147614.py"
+      ],
+      [
+        "onsets_and_frames/lstm.py",
+        "_sources/lstm_9c512195854e58d07ce3c0f6b426a417.py"
+      ],
+      [
+        "onsets_and_frames/mel.py",
+        "_sources/mel_50318a14a9452c369343fdefa9a902cd.py"
+      ],
+      [
+        "onsets_and_frames/midi.py",
+        "_sources/midi_539deea82fb97848d4c22df742e456e3.py"
+      ],
+      [
+        "onsets_and_frames/transcriber.py",
+        "_sources/transcriber_eb6f8ec62b8c8509f44c0273cb3be4c5.py"
+      ],
+      [
+        "onsets_and_frames/utils.py",
+        "_sources/utils_15301e2bc5aece230d5d74f88ccba28c.py"
+      ],
+      [
+        "train.py",
+        "_sources/train_e659b9f92aaae1a5bd57f840e33ea470.py"
+      ]
+    ]
+  },
+  "heartbeat": "2022-12-09T05:12:55.844495",
+  "host": {
+    "ENV": {},
+    "cpu": "Intel Xeon Processor (Skylake, IBRS)",
+    "gpus": {
+      "driver_version": "510.85.02",
+      "gpus": [
+        {
+          "model": "NVIDIA GeForce RTX 3060 Ti",
+          "persistence_mode": false,
+          "total_memory": 8192
+        }
+      ]
+    },
+    "hostname": "scs-gpu-harman-hp",
+    "os": [
+      "Linux",
+      "Linux-5.15.0-48-generic-x86_64-with-glibc2.35"
+    ],
+    "python_version": "3.9.0"
+  },
+  "meta": {
+    "command": "train",
+    "options": {
+      "--beat-interval": null,
+      "--capture": null,
+      "--comment": null,
+      "--debug": false,
+      "--enforce_clean": false,
+      "--file_storage": null,
+      "--force": false,
+      "--help": false,
+      "--loglevel": null,
+      "--mongo_db": null,
+      "--name": null,
+      "--pdb": false,
+      "--print-config": false,
+      "--priority": null,
+      "--queue": false,
+      "--s3": null,
+      "--sql": null,
+      "--tiny_db": null,
+      "--unobserved": false,
+      "COMMAND": null,
+      "UPDATE": [],
+      "help": false,
+      "with": false
+    }
+  },
+  "resources": [],
+  "result": null,
+  "start_time": "2022-12-09T01:44:59.543909",
+  "status": "COMPLETED",
+  "stop_time": "2022-12-09T05:12:55.834213"
+}

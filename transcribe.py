@@ -7,17 +7,20 @@ import numpy as np
 import soundfile
 from pydub.utils import make_chunks
 from mir_eval.util import midi_to_hz
+import random as r
 
 from onsets_and_frames import *
 
 
 def load_and_process_audio(flac_path, sequence_length, device):
-
+    torch.manual_seed(0)
+    np.random.seed(0)
+    r.seed(0)
     random = np.random.RandomState(seed=42)
 
 
     song = AudioSegment.from_file(flac_path, format='flac')
-    song_normal = set_loudness(song, -20)
+    song_normal = set_loudness(song, -15)
     print(f"before: {song.dBFS}     after: {song_normal.dBFS}")
 
     name = flac_path.split('/')[-1]
@@ -96,8 +99,6 @@ def transcribe_file(model_file, flac_paths, save_path, sequence_length,
         p_est = np.array([midi_to_hz(HIT_MAPS_ENCODE[midi]) for midi in p_est])
         
         os.makedirs(save_path, exist_ok=True)
-        pred_path = os.path.join(save_path, os.path.basename(flac_path) + '.pred.png')
-        # save_pianoroll(pred_path, predictions['onset'])
         midi_path = os.path.join(save_path, os.path.basename(flac_path) + '.pred.mid')
         save_midi(midi_path, p_est, i_est, v_est)
 
